@@ -22,3 +22,7 @@ Work in progress on a project to create a Distributed Ledger over HTTP in Java. 
 ## License
 
 This project is not licensed for public use. 
+
+## Acknowledgments
+
+* HTTP Client/Server based on https://www.codeproject.com/Tips/1040097/Create-a-Simple-Web-Server-in-Java-HTTP-Server
