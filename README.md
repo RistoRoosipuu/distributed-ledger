@@ -6,13 +6,14 @@ Work in progress on a project to create a Distributed Ledger over HTTP in Java. 
 
 * Refactor the HTTP server Get/Post methods/classes. 
 * Fix URLConnection hanging.
-* Rewrite Main Method to better reflect server/client creation.
+* Rewrite Main Method to better reflect server/client creation.  -- Semi-done
 * Create a handler for the BlockChain.
-* Create and hash the Blocks within the blockchain.
+* Create and hash the Blocks within the blockchain. -- Done
 
 # Part Two todo:
 
 * Continue to build the entire Ledger.
+* Implement the Merkle Tree for blocks. 
 * TBD.
 
 ## Authors
