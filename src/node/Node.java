@@ -36,7 +36,7 @@ public class Node {
         System.out.println("Stand alone Peer");
 
 
-        connectingInterally();
+        connectingInternally();
         //findNodeHostIPAddress();
 
         startNodeClientAndServer(port);
@@ -56,7 +56,7 @@ public class Node {
 
         //findNodeHostIPAddress();
 
-        connectingInterally();
+        connectingInternally();
 
 
         startNodeClientAndServer(port);
@@ -69,7 +69,7 @@ public class Node {
 
     }
 
-    private void connectingInterally() {
+    private void connectingInternally() {
 
         hostIP = localAddr.getHostAddress() + ":" + this.port;
 
@@ -183,6 +183,7 @@ public class Node {
      */
     public void populatePeerSetFromStaticFile() {
         //Get the file reference
+        //NB! Refactor this to find it within the Node or another package
         Path path = Paths.get("C:\\Users\\Risto\\IdeaProjects\\Distributed_Ledger\\src\\node\\staticPeerList.txt");
 
         //Add to Set

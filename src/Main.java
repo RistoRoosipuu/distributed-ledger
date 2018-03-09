@@ -6,8 +6,21 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         // write your code here
+
+
+        //Block genesisBlock = new Block("Hi im the first block", "0");
+        //System.out.println("Hash for block 1: " + genesisBlock.getHash());
+
+        //Block secondBlock = new Block("Yo im the second block", genesisBlock.getHash());
+        //System.out.println("Hash for block 2: "  + secondBlock.getHash());
+
+        //Block thirdBlock = new Block("I am the third block", secondBlock.getHash());
+        //System.out.println("Hash for block 3: " + thirdBlock.getHash());
         Scanner reader = new Scanner(System.in);
-        System.out.println("Would you like to start a Network y/n:");
+        System.out.println("Would you like to start a Standalone Network or would you like to " +
+                "connect to a specific IP/Port:");
+        System.out.println("Write y for Standalone OR n for global connection");
+
         String answer = reader.next();
 
         if (answer.equals("y")) {
@@ -18,7 +31,6 @@ public class Main {
 
             new Node(port);
         } else if (answer.equals("n")) {
-            //System.out.println("URL is currently hard-coded into the Node class. Write whatever");
             System.out.println("Please enter the URL(Local) you want to connect to: x.x.x.x:yyyy");
             String url = reader.next();
             System.out.println("Please enter your port");
