@@ -1,46 +1,49 @@
 package block;
 
-import java.security.MessageDigest;
+import hashing.HashToHex;
+import hashing.Hashable;
+
 import java.util.Date;
+import java.util.List;
 
-public class Block {
+public class Block implements Hashable{
 
-    private String hash;
     private String prevHash;
-    private String data;
+    private List<Transaction> transactions;
     private long timeStamp;
-
-    public Block(String data, String prevHash) {
-        this.data = data;
+    public Block(String prevHash, List<Transaction> transactions) {
         this.prevHash = prevHash;
+        this.transactions = transactions;
         this.timeStamp = new Date().getTime();
-        this.hash = calculateHash();
     }
 
-    private String calculateHash() {
-        String calculatedHash = applySha256AndConvertToHex(prevHash + Long.toString(timeStamp) + data);
-
-        return calculatedHash;
-    }
-
-    private String applySha256AndConvertToHex(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] encodedHash = digest.digest(input.getBytes("UTF-8"));
-
-            StringBuffer hexString = new StringBuffer();
-            for (int i = 0; i < encodedHash.length; i++) {
-                String hex = Integer.toHexString(0xff & encodedHash[i]);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (Exception e) {
-            throw new RuntimeException();
+    @Override
+    public String hash() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(prevHash);
+        sb.append("|");
+        sb.append(timeStamp);
+        for(Transaction transaction : transactions) {
+            sb.append("|");
+            sb.append(transaction.hash());
         }
+        return HashToHex.sha256ToHex(sb.toString());
     }
 
-    public String getHash() {
-        return hash;
+    @Override
+    public String toString() {
+        return "Block hash: " + this.hash();
+    }
+
+    public String getPrevHash() {
+        return prevHash;
+    }
+
+    public List<Transaction> getTransactions() {
+        return transactions;
+    }
+
+    public long getTimeStamp() {
+        return timeStamp;
     }
 }

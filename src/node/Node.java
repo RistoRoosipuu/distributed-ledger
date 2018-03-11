@@ -1,5 +1,7 @@
 package node;
 
+import block.Block;
+import block.Transaction;
 import com.sun.net.httpserver.HttpServer;
 import server.*;
 
@@ -11,7 +13,9 @@ import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,8 +30,10 @@ public class Node {
     // Can't use Global IP without Port Forwarding.
     private String testIp = "192.168.1.121:9000";
     private ScheduledExecutorService refreshPeersExecutor = Executors.newSingleThreadScheduledExecutor();
-    private boolean canRun = true;
+
     private InetAddress localAddr = InetAddress.getLocalHost();
+    private List<Transaction> knownTransactions = new ArrayList<>();
+    private List<Block> knownBlocks = new ArrayList<>();
 
     public Node(int port) throws IOException {
         this.port = port;
@@ -43,7 +49,13 @@ public class Node {
 
         populatePeerSetFromStaticFile();
 
+        populateBlockListWithPH();
         refreshPeerList();
+
+
+        System.out.println(getKnownBlocks());
+
+
 
     }
 
@@ -151,7 +163,11 @@ public class Node {
             server.createContext("/echoGet", new GetHandler());
             server.createContext("/echoPost", new PostHandler());
             server.createContext("/getPeers", new PeerHandler(this));
+            //Maybe i should not create a secondary Context here and just throw the IP into getPeers
+            //Validat with regex or something
             server.createContext("/postIP", new AddrPostHandler(this));
+            server.createContext("/getblocks", new BlockHandler(this));
+            server.createContext("/getdata", new SpecificBlockHandler(this));
             server.setExecutor(null);
             server.start();
         } catch (IOException e) {
@@ -215,7 +231,7 @@ public class Node {
         URL obj = new URL(url);
         HttpURLConnection con = (HttpURLConnection) obj.openConnection();
 
-        //add reuqest header
+        //add request header
         con.setRequestMethod("POST");
         con.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:56.0) Gecko/20100101 Firefox/56.0");
         con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
@@ -250,5 +266,33 @@ public class Node {
 
     }
 
+    private void populateBlockListWithPH() {
+        Transaction genesisBlock = new Transaction("0", "hello my name is jeff");
+        Transaction firstBlock = new Transaction(genesisBlock.hash(), "hello my name is fred");
+        List<Transaction> list = new ArrayList<>();
+        list.add(genesisBlock);
+        list.add(firstBlock);
+        Block block = new Block("0", list);
+        System.out.println("Block 1: " + block.hash());
+        Transaction secondBlock = new Transaction(firstBlock.hash(), "hello whats my name");
+        Transaction thirdBlock = new Transaction(secondBlock.hash(), "last Transaction");
+        List<Transaction> list2 = new ArrayList<>();
+        list2.add(secondBlock);
+        list2.add(thirdBlock);
+        Block block2 = new Block(block.hash(), list2);
+        System.out.println("Block 2: " + block2.hash());
 
+        getKnownBlocks().add(block);
+        getKnownBlocks().add(block2);
+
+
+    }
+
+    public List<Transaction> getKnownTransactions() {
+        return knownTransactions;
+    }
+
+    public List<Block> getKnownBlocks() {
+        return knownBlocks;
+    }
 }

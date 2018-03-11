@@ -1,21 +1,15 @@
+import block.Block;
+import block.Transaction;
 import node.Node;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class Main {
 
     public static void main(String[] args) throws Exception {
         // write your code here
-
-
-        //Block genesisBlock = new Block("Hi im the first block", "0");
-        //System.out.println("Hash for block 1: " + genesisBlock.getHash());
-
-        //Block secondBlock = new Block("Yo im the second block", genesisBlock.getHash());
-        //System.out.println("Hash for block 2: "  + secondBlock.getHash());
-
-        //Block thirdBlock = new Block("I am the third block", secondBlock.getHash());
-        //System.out.println("Hash for block 3: " + thirdBlock.getHash());
         Scanner reader = new Scanner(System.in);
         System.out.println("Would you like to start a Standalone Network or would you like to " +
                 "connect to a specific IP/Port:");
