@@ -1,9 +1,5 @@
-import block.Block;
-import block.Transaction;
 import node.Node;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Scanner;
 
 public class Main {
@@ -11,9 +7,8 @@ public class Main {
     public static void main(String[] args) throws Exception {
         // write your code here
         Scanner reader = new Scanner(System.in);
-        System.out.println("Would you like to start a Standalone Network or would you like to " +
-                "connect to a specific IP/Port:");
-        System.out.println("Write y for Standalone OR n for global connection");
+        System.out.println("If you wish to start a Standalone Network, type y");
+        System.out.println("If you wish to start a Network that connects to a specific IP, type n");
 
         String answer = reader.next();
 

@@ -2,21 +2,20 @@ package node;
 
 import block.Block;
 import block.Transaction;
+import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpServer;
 import server.*;
+import server.block.transfer.BlockReceiver;
+import server.block.transfer.BlockSender;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -27,13 +26,16 @@ public class Node {
     private int port;
     private String hostIP;
     private Set<String> peerSet;
-    // Can't use Global IP without Port Forwarding.
-    private String testIp = "192.168.1.121:9000";
     private ScheduledExecutorService refreshPeersExecutor = Executors.newSingleThreadScheduledExecutor();
+    private ExecutorService serverExecutor = Executors.newFixedThreadPool(5);
+    //cachedTP can be dangerous
+    //private ExecutorService connectionThreads = Executors.newCachedThreadPool();
 
     private InetAddress localAddr = InetAddress.getLocalHost();
     private List<Transaction> knownTransactions = new ArrayList<>();
-    private List<Block> knownBlocks = new ArrayList<>();
+    private List<Block> knownBlocks = Collections.synchronizedList(new ArrayList<>());
+    //NB! Remember to remove Gson from BlockReceiver
+    private Gson gson = new Gson();
 
     public Node(int port) throws IOException {
         this.port = port;
@@ -49,12 +51,12 @@ public class Node {
 
         populatePeerSetFromStaticFile();
 
-        populateBlockListWithPH();
-        refreshPeerList();
+        getBlocksFromHardCopy();
+        //Shutting executor down for Block transfer testing
+        //refreshPeerList();
 
 
         System.out.println(getKnownBlocks());
-
 
 
     }
@@ -75,9 +77,11 @@ public class Node {
 
         populatePeerSetFromStaticFile();
 
-        connectToServer(peerAddr);
+        getBlocksFromHardCopy();
 
-        refreshPeerList();
+        connectToServer(peerAddr);
+        ////Shutting executor down for Block transfer testing
+        //refreshPeerList();
 
     }
 
@@ -89,12 +93,10 @@ public class Node {
     }
 
     private void refreshPeerList() {
-
         refreshPeersExecutor.schedule(new Runnable() {
             @Override
             public void run() {
                 System.out.println("Refrehing peers for: " + hostIP);
-
                 for (String peerUrl : peerSet) {
                     //Prevent it from connecting to itself
                     if (!peerUrl.equals(hostIP)) {
@@ -105,19 +107,17 @@ public class Node {
                         }
                     }
                 }
-
                 System.out.println("After connecting to known Peers for " + hostIP);
                 System.out.println("Refreshed PeerList is: " + peerSet);
-
                 //restart the executioner here
                 refreshPeerList();
             }
         }, 30, TimeUnit.SECONDS);
 
-
     }
-    /*
-     NB connecToServer and Post (down below) have different type of URL Connections
+
+    /**
+     * REWRITE TO URL CONNECTION????????++
      */
 
     private void connectToServer(String url) throws Exception {
@@ -129,7 +129,7 @@ public class Node {
         try {
             oracle = new URL("http://" + url + "/getPeers");
 
-            sendPost(url);
+            //sendPost(url);
 
 
             URLConnection yc = oracle.openConnection();
@@ -151,7 +151,9 @@ public class Node {
 
     }
 
-
+    /**
+     * DELETE AND REMOVE UNUSED HANDLERS
+     */
     public void startNodeClientAndServer(int port) {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -159,16 +161,18 @@ public class Node {
             //InetAddress i = InetAddress.getLocalHost();
             System.out.println(localAddr.getHostAddress());
             server.createContext("/", new RootHandler());
-            server.createContext("/echoHeader", new HeaderHandler());
-            server.createContext("/echoGet", new GetHandler());
-            server.createContext("/echoPost", new PostHandler());
+            //server.createContext("/echoHeader", new HeaderHandler());
+            //server.createContext("/echoGet", new GetHandler());
+            //server.createContext("/echoPost", new PostHandler());
             server.createContext("/getPeers", new PeerHandler(this));
             //Maybe i should not create a secondary Context here and just throw the IP into getPeers
-            //Validat with regex or something
+            //Validate with regex or something
             server.createContext("/postIP", new AddrPostHandler(this));
             server.createContext("/getblocks", new BlockHandler(this));
             server.createContext("/getdata", new SpecificBlockHandler(this));
-            server.setExecutor(null);
+            server.createContext("/block", new BlockSender(this));
+            server.createContext("/receiveBlock", new BlockReceiver(this));
+            server.setExecutor(serverExecutor);
             server.start();
         } catch (IOException e) {
             e.printStackTrace();
@@ -199,8 +203,7 @@ public class Node {
      */
     public void populatePeerSetFromStaticFile() {
         //Get the file reference
-        //NB! Refactor this to find it within the Node or another package
-        Path path = Paths.get("C:\\Users\\Risto\\IdeaProjects\\Distributed_Ledger\\src\\node\\staticPeerList.txt");
+        Path path = Paths.get("src\\node\\staticPeerList.txt");
 
         //Add to Set
         try (Stream<String> lines = Files.lines(path)) {
@@ -212,17 +215,12 @@ public class Node {
         System.out.println(peerSet);
     }
 
-    public synchronized Set<String> getPeerSet() {
+    public Set<String> getPeerSet() {
         return peerSet;
     }
 
-    /*
-    Connect to an URL and open up /echoPost
-    Send connecting clients ip as POST
-    Then AddrPostHandler will receive the Post content(currently only the localAdds and adds it
-    to the Server peerlist
-    Then sends back a response,
-    We return to the sendPost method, and it finishes.
+    /**
+     * REFACTOR TO A SINGLE POST METHOD
      */
     // HTTP POST request
     private void sendPost(String addr) throws Exception {
@@ -266,33 +264,141 @@ public class Node {
 
     }
 
-    private void populateBlockListWithPH() {
-        Transaction genesisBlock = new Transaction("0", "hello my name is jeff");
-        Transaction firstBlock = new Transaction(genesisBlock.hash(), "hello my name is fred");
-        List<Transaction> list = new ArrayList<>();
-        list.add(genesisBlock);
-        list.add(firstBlock);
-        Block block = new Block("0", list);
-        System.out.println("Block 1: " + block.hash());
-        Transaction secondBlock = new Transaction(firstBlock.hash(), "hello whats my name");
-        Transaction thirdBlock = new Transaction(secondBlock.hash(), "last Transaction");
-        List<Transaction> list2 = new ArrayList<>();
-        list2.add(secondBlock);
-        list2.add(thirdBlock);
-        Block block2 = new Block(block.hash(), list2);
-        System.out.println("Block 2: " + block2.hash());
 
-        getKnownBlocks().add(block);
-        getKnownBlocks().add(block2);
+    private void getBlocksFromHardCopy() {
 
+        Path path = Paths.get("src\\node\\copyOfBlocks.txt");
+        System.out.println("Block method");
+        try (Stream<String> lines = Files.lines(path)) {
+            lines.forEach(this::convertToObjectAndAddToList);
+        } catch (IOException e) {
+            //error happened
+        }
 
     }
 
-    public List<Transaction> getKnownTransactions() {
-        return knownTransactions;
+    private void convertToObjectAndAddToList(String line) {
+        Block convertedFromJson = gson.fromJson(line, Block.class);
+        this.getKnownBlocks().add(convertedFromJson);
+        System.out.println(line);
+        System.out.println(convertedFromJson);
     }
+
 
     public List<Block> getKnownBlocks() {
         return knownBlocks;
+    }
+
+    public void sendBlock() throws IOException {
+        System.out.println("SEND BLOCK METHOD");
+        byte[] message = createBlock().getBytes(StandardCharsets.UTF_8);
+        sendMessageToAllPeers(message);
+
+    }
+
+    //If this is public, would that be bad?
+    public void sendMessageToAllPeers(byte[] message) throws IOException {
+        System.out.println("SEND ALL MESSAGE METHOD");
+        for (String peer : getPeerSet()) {
+            if (!peer.equals(hostIP)) {
+
+                postData(peer, message);
+                /**
+                 connectionThreads.execute(new Runnable() {
+                @Override public void run() {
+                try {
+                postData(peer, message);
+                } catch (IOException e) {
+                e.printStackTrace();
+                }
+                }
+                });
+
+                 **/
+                /**
+                 new Thread(() -> {
+                 try {
+                 postData(peer, message);
+                 } catch (IOException e) {
+                 e.printStackTrace();
+                 }
+                 }).start();
+
+                 **/
+            }
+
+        }
+    }
+
+    //Dummy data
+    private String createBlock() {
+        System.out.println("CREATE STRING METHOD");
+        //So, Transaction shouldn't have a previous hash right? I'm thinking of using the Factory pattern
+        Transaction secondBlock = new Transaction("0", "hello whats my name");
+        Transaction thirdBlock = new Transaction("1", "last Transaction");
+        List<Transaction> list2 = new ArrayList<>();
+        list2.add(secondBlock);
+        list2.add(thirdBlock);
+        //Way too long, method?
+        //Get the last Blocks hash = prevHash; list content always the same
+        Block block = new Block(getKnownBlocks().get(getKnownBlocks().size() - 1).hash(), list2);
+        Gson gson = new Gson();
+        String blockAsJsonString = gson.toJson(block);
+
+        this.getKnownBlocks().add(block);
+
+
+        return blockAsJsonString;
+    }
+
+    /**
+     * Note to Self: Get rid of the other(the ip one) Post function, we can combine them into one.
+     */
+    private void postData(String url, byte[] message) throws IOException {
+        HttpURLConnection connection = null;
+        OutputStream out = null;
+        InputStream in = null;
+
+        try {
+            System.out.println("Trying to Open Connection");
+            connection = (HttpURLConnection) new URL("http://" + url + "/receiveBlock").openConnection();
+            System.out.println(connection.getURL());
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            connection.setDoOutput(true);
+
+
+            out = connection.getOutputStream();
+            out.write(message);
+            out.close();
+
+            in = connection.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+            String line = null;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+
+            in.close();
+        } finally {
+            if (connection != null) connection.disconnect();
+            if (out != null) out.close();
+            if (in != null) in.close();
+        }
+    }
+
+
+    public boolean checkIfBlockExists(Block block) throws IOException {
+        if (this.getKnownBlocks().contains(block)) {
+            System.out.println("Node(" + this.hostIP + "): Contains it: " + this.getKnownBlocks());
+            return true;
+        } else {
+            System.out.println("Node(" + this.hostIP + "): Don't have this one");
+            this.getKnownBlocks().add(block);
+            System.out.println("Added it: " + this.getKnownBlocks());
+            //this.sendMessageToAllPeers("testo".getBytes(StandardCharsets.UTF_8));
+
+            return false;
+        }
     }
 }
