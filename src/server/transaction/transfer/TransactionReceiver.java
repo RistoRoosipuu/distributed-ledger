@@ -1,7 +1,5 @@
-package server.block.transfer;
+package server.transaction.transfer;
 
-import block.Block;
-import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import node.Node;
@@ -12,12 +10,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
-public class BlockReceiver implements HttpHandler {
+public class TransactionReceiver implements HttpHandler {
 
     private Node node;
-    private Gson gson = new Gson();
 
-    public BlockReceiver(Node node) {
+    public TransactionReceiver(Node node) {
         this.node = node;
     }
 
@@ -27,17 +24,15 @@ public class BlockReceiver implements HttpHandler {
         InputStreamReader isr = new InputStreamReader(exchange.getRequestBody(), "utf-8");
         BufferedReader br = new BufferedReader(isr);
         String query = br.readLine();
-        //Consider moving gson to Node
-        Block receivedBlock = gson.fromJson(query, Block.class);
-        this.node.checkIfFileContainsBlockJson(query);
 
-        System.out.println("BlockReceiver Query: " + query);
+
+        System.out.println("TransactionReceiver Query: " + query);
         String response;
-        if (this.node.checkIfBlockExists(receivedBlock)) {
-            response = "From Handler: This peer already has this block";
+        if (this.node.checkIfTransactionExists(query)) {
+            response = "From Handler: This peer already has this Transaction";
         } else {
-            response = "From Handler: This peer didn't have this block";
-            this.node.sendBlockToAllPeers(query.getBytes(StandardCharsets.UTF_8));
+            response = "From Handler: This peer didn't have this Transaction";
+            this.node.sendTransactionToAllPeers(query.getBytes(StandardCharsets.UTF_8));
         }
 
 
@@ -47,4 +42,5 @@ public class BlockReceiver implements HttpHandler {
         os.close();
 
     }
+
 }

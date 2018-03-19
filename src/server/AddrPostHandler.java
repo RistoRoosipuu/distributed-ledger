@@ -20,6 +20,33 @@ public class AddrPostHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        InputStreamReader isr = new InputStreamReader(exchange.getRequestBody(), "utf-8");
+        BufferedReader br = new BufferedReader(isr);
+        String query = br.readLine();
+
+        //Whats more costly, just adding to Set or checking if Set has it first.
+        this.peer.getPeerSet().add(query);
+        String response = "Connecting IP was successfully given to Peer";
+
+
+        exchange.sendResponseHeaders(200, response.length());
+        OutputStream os = exchange.getResponseBody();
+        os.write(response.getBytes());
+        os.close();
+
+
+
+
+
+
+
+
+
+
+
+
+
+        /**
         Map<String, Object> parameters = new HashMap<>();
         InputStreamReader isr = new InputStreamReader(exchange.getRequestBody(), "utf-8");
         BufferedReader br = new BufferedReader(isr);
@@ -40,5 +67,7 @@ public class AddrPostHandler implements HttpHandler {
         OutputStream os = exchange.getResponseBody();
         os.write(response.toString().getBytes());
         os.close();
+
+         **/
     }
 }

@@ -4,6 +4,7 @@ import hashing.HashToHex;
 import hashing.Hashable;
 
 import java.util.Date;
+import java.util.List;
 
 public class Transaction implements Hashable {
 
@@ -11,7 +12,23 @@ public class Transaction implements Hashable {
     private String data;
     private long timeStamp;
 
-    public Transaction(String prevHash, String data) {
+
+    //If known Transactions are empty, create Genesis Transaction, else lastKnownHash = prevHash
+    public static Transaction getNewTransaction(List<Transaction> knownTransaction, String data) {
+        if (knownTransaction.size() == 0) {
+            return new Transaction(data);
+        } else {
+            return new Transaction(knownTransaction.get(knownTransaction.size() - 1).hash(), data);
+        }
+    }
+
+    //so called Genesis Transaction?
+    private Transaction(String data) {
+        this.data = data;
+        this.timeStamp = new Date().getTime();
+    }
+
+    private Transaction(String prevHash, String data) {
         this.prevHash = prevHash;
         this.data = data;
         this.timeStamp = new Date().getTime();

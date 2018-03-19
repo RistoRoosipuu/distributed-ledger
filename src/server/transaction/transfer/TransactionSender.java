@@ -1,4 +1,4 @@
-package server.block.transfer;
+package server.transaction.transfer;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -7,11 +7,10 @@ import node.Node;
 import java.io.IOException;
 import java.io.OutputStream;
 
-public class BlockSender implements HttpHandler {
-
+public class TransactionSender implements HttpHandler {
     private Node node;
 
-    public BlockSender(Node node) {
+    public TransactionSender(Node node) {
 
         this.node = node;
     }
@@ -20,9 +19,9 @@ public class BlockSender implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         System.out.println("Send Handler Works");
 
-        String response = "<h1>A Block is being created and sent </h1>";
+        String response = "<h1>A Transaction is being created and sent </h1>";
 
-        this.node.sendBlock();
+        this.node.sendTransaction();
 
 
         exchange.sendResponseHeaders(200, response.length());
