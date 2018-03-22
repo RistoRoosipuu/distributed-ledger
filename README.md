@@ -15,6 +15,7 @@ Work in progress on a project to create a Distributed Ledger over HTTP in Java. 
     * Bug: If a known Peer is offline and the /block handler is used, each unsuccessful UrlConnection creates its own Block
     * Improvement: The Send/Receiver parts for Block/Transaction are basically the same. Should be easy to refactor them into
                    a more overarching methods.
+    * Improvement: Clean up code.
   
 # Part Two todo:
 
