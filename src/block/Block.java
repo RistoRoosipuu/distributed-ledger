@@ -3,19 +3,19 @@ package block;
 import hashing.HashToHex;
 import hashing.Hashable;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 
 public class Block implements Hashable {
 
     private String prevHash;
     private List<Transaction> transactions;
-    private long timeStamp;
+    private String timeStamp;
 
     public Block(String prevHash, List<Transaction> transactions) {
         this.prevHash = prevHash;
         this.transactions = transactions;
-        this.timeStamp = new Date().getTime();
+        this.timeStamp = Instant.now().toString();
     }
 
     @Override
@@ -43,16 +43,16 @@ public class Block implements Hashable {
 
         Block block = (Block) o;
 
-        if (timeStamp != block.timeStamp) return false;
         if (prevHash != null ? !prevHash.equals(block.prevHash) : block.prevHash != null) return false;
-        return transactions != null ? transactions.equals(block.transactions) : block.transactions == null;
+        if (transactions != null ? !transactions.equals(block.transactions) : block.transactions != null) return false;
+        return timeStamp != null ? timeStamp.equals(block.timeStamp) : block.timeStamp == null;
     }
 
     @Override
     public int hashCode() {
         int result = prevHash != null ? prevHash.hashCode() : 0;
         result = 31 * result + (transactions != null ? transactions.hashCode() : 0);
-        result = 31 * result + (int) (timeStamp ^ (timeStamp >>> 32));
+        result = 31 * result + (timeStamp != null ? timeStamp.hashCode() : 0);
         return result;
     }
 }

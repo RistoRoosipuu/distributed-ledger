@@ -53,7 +53,7 @@ public class Node {
         refreshPeerList();
 
 
-        System.out.println(getKnownBlocks());
+        //System.out.println(getKnownBlocks());
 
 
     }

@@ -3,15 +3,16 @@ package block;
 import hashing.HashToHex;
 import hashing.Hashable;
 
-import java.util.Date;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class Transaction implements Hashable {
 
     private String prevHash;
     private String data;
-    private long timeStamp;
-
+    private String timeStamp;
 
     //If known Transactions are empty, create Genesis Transaction, else lastKnownHash = prevHash
     public static Transaction getNewTransaction(List<Transaction> knownTransaction, String data) {
@@ -24,14 +25,15 @@ public class Transaction implements Hashable {
 
     //so called Genesis Transaction?
     private Transaction(String data) {
+        this.prevHash = "0";
         this.data = data;
-        this.timeStamp = new Date().getTime();
+        this.timeStamp = Instant.now().toString();
     }
 
     private Transaction(String prevHash, String data) {
         this.prevHash = prevHash;
         this.data = data;
-        this.timeStamp = new Date().getTime();
+        this.timeStamp = Instant.now().toString();
     }
 
 
@@ -55,7 +57,7 @@ public class Transaction implements Hashable {
         return data;
     }
 
-    public long getTimeStamp() {
+    public String getTimeStamp() {
         return timeStamp;
     }
 
@@ -66,16 +68,16 @@ public class Transaction implements Hashable {
 
         Transaction that = (Transaction) o;
 
-        if (timeStamp != that.timeStamp) return false;
         if (prevHash != null ? !prevHash.equals(that.prevHash) : that.prevHash != null) return false;
-        return data != null ? data.equals(that.data) : that.data == null;
+        if (data != null ? !data.equals(that.data) : that.data != null) return false;
+        return timeStamp != null ? timeStamp.equals(that.timeStamp) : that.timeStamp == null;
     }
 
     @Override
     public int hashCode() {
         int result = prevHash != null ? prevHash.hashCode() : 0;
         result = 31 * result + (data != null ? data.hashCode() : 0);
-        result = 31 * result + (int) (timeStamp ^ (timeStamp >>> 32));
+        result = 31 * result + (timeStamp != null ? timeStamp.hashCode() : 0);
         return result;
     }
 }
