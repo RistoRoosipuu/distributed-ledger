@@ -27,12 +27,17 @@ public class TransactionReceiver implements HttpHandler {
 
 
         System.out.println("TransactionReceiver Query: " + query);
-        String response;
-        if (this.node.checkIfTransactionExists(query)) {
-            response = "From Handler: This peer already has this Transaction";
-        } else {
-            response = "From Handler: This peer didn't have this Transaction";
-            this.node.sendTransactionToAllPeers(query.getBytes(StandardCharsets.UTF_8));
+        String response = "";
+
+        try {
+            if (this.node.checkIfTransactionExists(query)) {
+                response = "From Handler: This peer already has this Transaction";
+            } else {
+                response = "From Handler: This peer didn't have this Transaction";
+                this.node.sendTransactionToAllPeers(query.getBytes(StandardCharsets.UTF_8));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
 

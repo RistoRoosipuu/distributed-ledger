@@ -3,6 +3,7 @@ package block;
 import hashing.HashToHex;
 import hashing.Hashable;
 
+import java.security.PublicKey;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -10,31 +11,39 @@ import java.util.List;
 
 public class Transaction implements Hashable {
 
+    private String signature;
     private String prevHash;
-    private String data;
+    private String fromPublicKey;
+    private String toPublicKey;
+    private String sum;
     private String timeStamp;
 
     //If known Transactions are empty, create Genesis Transaction, else lastKnownHash = prevHash
-    public static Transaction getNewTransaction(List<Transaction> knownTransaction, String data) {
+    public static Transaction getNewTransaction(List<Transaction> knownTransaction, String fromPublicKey, String toPublicKey, String sum) {
         if (knownTransaction.size() == 0) {
-            return new Transaction(data);
+            return new Transaction(fromPublicKey, toPublicKey, sum);
         } else {
-            return new Transaction(knownTransaction.get(knownTransaction.size() - 1).hash(), data);
+            return new Transaction(knownTransaction.get(knownTransaction.size() - 1).hash(), fromPublicKey, toPublicKey, sum);
         }
     }
 
     //so called Genesis Transaction?
-    private Transaction(String data) {
+    private Transaction(String fromPublicKey, String toPublicKey, String sum) {
         this.prevHash = "0";
-        this.data = data;
+        this.fromPublicKey = fromPublicKey;
+        this.toPublicKey = toPublicKey;
+        this.sum = sum;
         this.timeStamp = Instant.now().toString();
     }
 
-    private Transaction(String prevHash, String data) {
+    private Transaction(String prevHash, String fromPublicKey, String toPublicKey, String sum) {
         this.prevHash = prevHash;
-        this.data = data;
+        this.fromPublicKey = fromPublicKey;
+        this.toPublicKey = toPublicKey;
+        this.sum = sum;
         this.timeStamp = Instant.now().toString();
     }
+
 
 
     @Override
@@ -42,7 +51,11 @@ public class Transaction implements Hashable {
         StringBuilder sb = new StringBuilder();
         sb.append(prevHash);
         sb.append("|");
-        sb.append(data);
+        sb.append(fromPublicKey);
+        sb.append("|");
+        sb.append(toPublicKey);
+        sb.append("|");
+        sb.append(sum);
         sb.append("|");
         sb.append(timeStamp);
 
@@ -53,12 +66,28 @@ public class Transaction implements Hashable {
         return prevHash;
     }
 
-    public String getData() {
-        return data;
+    public String getFromPublicKey() {
+        return fromPublicKey;
+    }
+
+    public String getToPublicKey() {
+        return toPublicKey;
+    }
+
+    public String getSum() {
+        return sum;
     }
 
     public String getTimeStamp() {
         return timeStamp;
+    }
+
+    public String getSignature() {
+        return signature;
+    }
+
+    public void setSignature(String signature) {
+        this.signature = signature;
     }
 
     @Override
@@ -68,15 +97,22 @@ public class Transaction implements Hashable {
 
         Transaction that = (Transaction) o;
 
+        if (signature != null ? !signature.equals(that.signature) : that.signature != null) return false;
         if (prevHash != null ? !prevHash.equals(that.prevHash) : that.prevHash != null) return false;
-        if (data != null ? !data.equals(that.data) : that.data != null) return false;
+        if (fromPublicKey != null ? !fromPublicKey.equals(that.fromPublicKey) : that.fromPublicKey != null)
+            return false;
+        if (toPublicKey != null ? !toPublicKey.equals(that.toPublicKey) : that.toPublicKey != null) return false;
+        if (sum != null ? !sum.equals(that.sum) : that.sum != null) return false;
         return timeStamp != null ? timeStamp.equals(that.timeStamp) : that.timeStamp == null;
     }
 
     @Override
     public int hashCode() {
-        int result = prevHash != null ? prevHash.hashCode() : 0;
-        result = 31 * result + (data != null ? data.hashCode() : 0);
+        int result = signature != null ? signature.hashCode() : 0;
+        result = 31 * result + (prevHash != null ? prevHash.hashCode() : 0);
+        result = 31 * result + (fromPublicKey != null ? fromPublicKey.hashCode() : 0);
+        result = 31 * result + (toPublicKey != null ? toPublicKey.hashCode() : 0);
+        result = 31 * result + (sum != null ? sum.hashCode() : 0);
         result = 31 * result + (timeStamp != null ? timeStamp.hashCode() : 0);
         return result;
     }

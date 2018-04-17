@@ -4,6 +4,7 @@ import block.Block;
 import block.Transaction;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpServer;
+import encryption.PublicPrivateGenerator;
 import server.*;
 import server.block.transfer.BlockReceiver;
 import server.block.transfer.BlockSender;
@@ -16,6 +17,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,16 +34,16 @@ public class Node {
     private Set<String> peerSet = Collections.synchronizedSet(new HashSet<>());
     private ScheduledExecutorService refreshPeersExecutor = Executors.newSingleThreadScheduledExecutor();
     private ExecutorService serverExecutor = Executors.newFixedThreadPool(10);
-
     private InetAddress localAddr = InetAddress.getLocalHost();
     private List<Transaction> knownTransactions = Collections.synchronizedList(new ArrayList<>());
     private List<Block> knownBlocks = Collections.synchronizedList(new ArrayList<>());
     //NB! Remember to remove Gson from BlockReceiver
     private Gson gson = new Gson();
+    private PublicPrivateGenerator generator = new PublicPrivateGenerator();
 
-    public Node(int port) throws IOException {
+
+    public Node(int port) throws IOException, NoSuchAlgorithmException {
         this.port = port;
-
         System.out.println("Stand alone Peer");
 
         connectingInternally();
@@ -50,13 +54,12 @@ public class Node {
 
         getBlocksFromHardCopy();
 
+        displayPublicKeyString();
+
         refreshPeerList();
 
-
-        //System.out.println(getKnownBlocks());
-
-
     }
+
 
     public Node(String peerAddr, int port) throws Exception {
         this.port = port;
@@ -72,6 +75,7 @@ public class Node {
         getBlocksFromHardCopy();
 
         connectToServer(peerAddr);
+
 
         refreshPeerList();
 
@@ -261,13 +265,6 @@ public class Node {
     private String createBlock() throws IOException {
         System.out.println("CREATE STRING METHOD");
 
-        //Adding two dummy Transactions to List
-
-        //NB! This will add ALL Transactions to the Block. Careful with that.
-        this.getKnownTransactions().add(Transaction.getNewTransaction(this.getKnownTransactions(), "hello whats my name"));
-        this.getKnownTransactions().add(Transaction.getNewTransaction(this.getKnownTransactions(), "last Transaction"));
-        //Way too long, method?
-        //Get the last Blocks hash = prevHash; list content always the same
         Block block = new Block(getKnownBlocks().get(getKnownBlocks().size() - 1).hash(), this.getKnownTransactions());
         String blockAsJsonString = gson.toJson(block);
 
@@ -336,16 +333,22 @@ public class Node {
     }
 
     //Could just combine Block and Transaction sending.
-    public void sendTransaction() {
+    public void sendTransaction(String receiver, String amount) throws Exception {
         System.out.println("SEND Transaction METHOD");
-        byte[] message = createTransaction().getBytes(StandardCharsets.UTF_8);
+        byte[] message = createTransaction(receiver, amount).getBytes(StandardCharsets.UTF_8);
         sendTransactionToAllPeers(message);
     }
 
-    private String createTransaction() {
+    private String createTransaction(String receiver, String amount) throws Exception {
 
-        Transaction transaction = Transaction.getNewTransaction(this.getKnownTransactions()
-                , "Create Transaction");
+        Transaction transaction = Transaction.getNewTransaction(this.getKnownTransactions(),
+                generator.getStringFromPublicKey(generator.getPublicKey()),
+                receiver, amount);
+
+        String signature = generator.encrypt(generator.getPrivateKey(), transaction.hash());
+
+        transaction.setSignature(signature);
+
         String transactionString = gson.toJson(transaction);
 
         this.getKnownTransactions().add(transaction);
@@ -371,7 +374,7 @@ public class Node {
         }
     }
 
-    public boolean checkIfTransactionExists(String transactionAsJson) {
+    public synchronized boolean checkIfTransactionExists(String transactionAsJson) throws Exception {
 
         Transaction transaction = gson.fromJson(transactionAsJson, Transaction.class);
         if (this.getKnownTransactions().contains(transaction)) {
@@ -382,6 +385,19 @@ public class Node {
             this.getKnownTransactions().add(transaction);
             System.out.println("Added it: " + this.getKnownTransactions());
 
+
+            return false;
+        }
+    }
+
+    public boolean checkIfSignatureIsValid(Transaction transaction) throws Exception {
+        String hash = transaction.hash();
+        PublicKey publicKey = generator.getPublicKeyFromString(transaction.getFromPublicKey());
+        String decryptedString = generator.decrypt(publicKey, transaction.getSignature());
+
+        if (hash.equals(decryptedString)) {
+            return true;
+        } else {
             return false;
         }
     }
@@ -413,4 +429,17 @@ public class Node {
             System.out.println("Error writing into File");
         }
     }
+
+    public void displayPublicKeyString() {
+        try {
+            String publicKey = generator.getStringFromPublicKey(generator.getPublicKey());
+            System.out.println("This Node: " + publicKey);
+        } catch (InvalidKeySpecException e) {
+            e.printStackTrace();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 }
