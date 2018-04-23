@@ -23,24 +23,35 @@ public class TransactionSender implements HttpHandler {
         String query = requestedURI.getRawQuery();
 
         //send response
-        String response;
+        String response = "";
         if (query == null) {
             response = "Please input the public key of the person receiving the transaction and its sum";
         } else {
             String[] hashGetKeyValue = query.split("=");
-            response = "<h1>A Transaction is being created and sent </h1>";
+            String receiverKey = hashGetKeyValue[0];
+            String sum = hashGetKeyValue[1];
+
+
             try {
-                this.node.sendTransaction(hashGetKeyValue[0], hashGetKeyValue[1]);
+                if(receiverKey.equals(this.node.getPublicKey())){
+                    response = "<h1>Please use 0 as the public key if you wish to send to yourself</h1>";
+                }else if(receiverKey.equals("0")) {
+                    response = "<h1>A Transaction is being created and sent to yourself!!! </h1>";
+                    this.node.sendTransaction(receiverKey, sum);
+                } else {
+                    response = "<h1>A Transaction is being created and sent </h1>";
+                    this.node.sendTransaction(receiverKey, sum);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
-        }
+
             exchange.sendResponseHeaders(200, response.length());
             OutputStream os = exchange.getResponseBody();
             os.write(response.getBytes());
             os.close();
 
-
+        }
         }
     }

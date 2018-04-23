@@ -12,9 +12,6 @@ public class Main {
     public static void main(String[] args) throws Exception {
         // write your code here
 
-
-        PublicPrivateGenerator generator = new PublicPrivateGenerator();
-
         Scanner reader = new Scanner(System.in);
         System.out.println("If you wish to start a Standalone Network, type y");
         System.out.println("If you wish to start a Network that connects to a specific IP, type n");

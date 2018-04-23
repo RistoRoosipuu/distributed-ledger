@@ -40,51 +40,33 @@ public class Node {
     //NB! Remember to remove Gson from BlockReceiver
     private Gson gson = new Gson();
     private PublicPrivateGenerator generator = new PublicPrivateGenerator();
-
+    private List<Transaction> unUsedTransactions = new ArrayList<>();
+    private String publicKey;
 
     public Node(int port) throws IOException, NoSuchAlgorithmException {
         this.port = port;
         System.out.println("Stand alone Peer");
-
         connectingInternally();
-
         startNodeClientAndServer(port);
-
         populatePeerSetFromStaticFile();
-
         getBlocksFromHardCopy();
-
         displayPublicKeyString();
-
         refreshPeerList();
-
     }
-
 
     public Node(String peerAddr, int port) throws Exception {
         this.port = port;
-
         System.out.println("This peer connects to a specific IP");
-
         connectingInternally();
-
         startNodeClientAndServer(port);
-
         populatePeerSetFromStaticFile();
-
         getBlocksFromHardCopy();
-
         connectToServer(peerAddr);
-
-
         refreshPeerList();
-
     }
 
     private void connectingInternally() {
-
         hostIP = localAddr.getHostAddress() + ":" + this.port;
-
         peerSet.add(hostIP);
     }
 
@@ -92,7 +74,6 @@ public class Node {
         refreshPeersExecutor.scheduleAtFixedRate(new Runnable() {
             @Override
             public void run() {
-
                 try {
                     System.out.println("Refreshing peers for: " + hostIP);
                     for (String peerUrl : peerSet) {
@@ -107,26 +88,20 @@ public class Node {
                     }
                     System.out.println("After connecting to known Peers for " + hostIP);
                     System.out.println("Refreshed PeerList is: " + peerSet);
-
                 } catch (Exception e) {
                     System.out.println("Something bad happened");
                     refreshPeerList();
                 }
-
             }
         }, 30, 30, TimeUnit.SECONDS);
-
     }
 
     private void connectToServer(String url) {
         System.out.println(this.hostIP + " Trying to connect to: " + url);
-
-
         URL oracle;
         try {
             oracle = new URL("http://" + url + "/getPeers");
             String postIPAddress = "http://" + url + "/postIP";
-
             URLConnection yc = oracle.openConnection();
             BufferedReader in = new BufferedReader(new InputStreamReader(
                     yc.getInputStream()));
@@ -141,8 +116,6 @@ public class Node {
             //e.printStackTrace();
             System.out.println("Unable to connect to given URL " + url + ". Please check the validity.");
         }
-
-
     }
 
     /**
@@ -167,24 +140,19 @@ public class Node {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-
     }
 
     public void findNodeHostIPAddress() throws IOException {
         URL url = new URL("http://checkip.amazonaws.com/");
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(url.openStream()));
-
         String inputLine;
         while ((inputLine = in.readLine()) != null)
             hostIP = inputLine;
         System.out.println("This Host IP: " + hostIP + " and port: " + port);
         in.close();
-
         //add this specific Node's IP and Port to known Peer Set
         this.hostIP = hostIP + ":" + port;
-
         getPeerSet().add(this.hostIP);
     }
 
@@ -192,16 +160,12 @@ public class Node {
      * Open Static known Peer file and add them to a Set
      */
     public void populatePeerSetFromStaticFile() {
-        //Get the file reference
         Path path = Paths.get("src\\node\\staticPeerList.txt");
-
-        //Add to Set
         try (Stream<String> lines = Files.lines(path)) {
             lines.forEach(line -> peerSet.add(line));
         } catch (IOException e) {
             //error happened
         }
-
         System.out.println(peerSet);
     }
 
@@ -209,9 +173,7 @@ public class Node {
         return peerSet;
     }
 
-
     private void getBlocksFromHardCopy() {
-
         Path path = Paths.get("src\\node\\copyOfBlocks.txt");
         System.out.println("Block method");
         try (Stream<String> lines = Files.lines(path)) {
@@ -219,7 +181,6 @@ public class Node {
         } catch (IOException e) {
             //error happened
         }
-
     }
 
     private void convertToObjectAndAddToList(String line) {
@@ -238,16 +199,12 @@ public class Node {
         System.out.println("SEND BLOCK METHOD");
         byte[] message = createBlock().getBytes(StandardCharsets.UTF_8);
         sendBlockToAllPeers(message);
-
     }
 
-    //If this is public, would that be bad?
     public void sendBlockToAllPeers(byte[] message) {
         System.out.println("SEND ALL MESSAGE METHOD");
         for (String peer : getPeerSet()) {
             if (!peer.equals(hostIP)) {
-
-
                 try {
                     postData("http://" + peer + "/receiveBlock", message);
                 } catch (IOException e) {
@@ -255,33 +212,46 @@ public class Node {
                     //If connection fails, remove Peer from Set
                     this.peerSet.remove(peer);
                 }
-
             }
 
         }
     }
 
-    //Dummy data
     private String createBlock() throws IOException {
         System.out.println("CREATE STRING METHOD");
-
-        Block block = new Block(getKnownBlocks().get(getKnownBlocks().size() - 1).hash(), this.getKnownTransactions());
+        Block block = new Block(getKnownBlocks().get(getKnownBlocks().size() - 1).hash(), this.unUsedTransactions);
         String blockAsJsonString = gson.toJson(block);
+        this.unUsedTransactions = new ArrayList<>();
 
         this.getKnownBlocks().add(block);
 
         checkIfFileContainsBlockJson(blockAsJsonString);
 
-
         return blockAsJsonString;
     }
 
+    public void findUnUsedTransactions() {
+        boolean canAdd;
+        for (Transaction transaction : knownTransactions) {
+            canAdd = true;
+            for (Block block : getKnownBlocks()) {
+                if (block.getTransactions().contains(transaction)) {
+                    canAdd = false;
+                    break;
+                }
+            }
+            if (canAdd) {
+                unUsedTransactions.add(transaction);
+            }
+        }
+        System.out.println("All: " + knownTransactions);
+        System.out.println("Unused: " + unUsedTransactions);
+    }
 
     private void postData(String url, byte[] message) throws IOException {
         HttpURLConnection connection = null;
         OutputStream out = null;
         InputStream in = null;
-
         try {
             System.out.println("Trying to Open Connection");
             connection = (HttpURLConnection) new URL(url).openConnection();
@@ -289,7 +259,6 @@ public class Node {
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             connection.setDoOutput(true);
-
 
             out = connection.getOutputStream();
             out.write(message);
@@ -301,7 +270,6 @@ public class Node {
             while ((line = reader.readLine()) != null) {
                 System.out.println(line);
             }
-
             in.close();
         } finally {
             if (connection != null) connection.disconnect();
@@ -309,7 +277,6 @@ public class Node {
             if (in != null) in.close();
         }
     }
-
 
     public boolean checkIfBlockExists(Block block) {
         if (this.getKnownBlocks().contains(block)) {
@@ -319,7 +286,6 @@ public class Node {
             System.out.println("Node(" + this.hostIP + "): Don't have this one");
             this.getKnownBlocks().add(block);
             System.out.println("Added it: " + this.getKnownBlocks());
-
             return false;
         }
     }
@@ -332,7 +298,6 @@ public class Node {
         return knownTransactions;
     }
 
-    //Could just combine Block and Transaction sending.
     public void sendTransaction(String receiver, String amount) throws Exception {
         System.out.println("SEND Transaction METHOD");
         byte[] message = createTransaction(receiver, amount).getBytes(StandardCharsets.UTF_8);
@@ -340,7 +305,6 @@ public class Node {
     }
 
     private String createTransaction(String receiver, String amount) throws Exception {
-
         Transaction transaction = Transaction.getNewTransaction(this.getKnownTransactions(),
                 generator.getStringFromPublicKey(generator.getPublicKey()),
                 receiver, amount);
@@ -360,22 +324,16 @@ public class Node {
         System.out.println("SEND ALL MESSAGE METHOD");
         for (String peer : getPeerSet()) {
             if (!peer.equals(hostIP)) {
-
                 try {
                     postData("http://" + peer + "/receiveTransaction", message);
                 } catch (IOException e) {
-                    //e.printStackTrace();
-                    //If connection fails, remove Peer from Set
                     this.peerSet.remove(peer);
                 }
-
             }
-
         }
     }
 
     public synchronized boolean checkIfTransactionExists(String transactionAsJson) throws Exception {
-
         Transaction transaction = gson.fromJson(transactionAsJson, Transaction.class);
         if (this.getKnownTransactions().contains(transaction)) {
             System.out.println("Node(" + this.hostIP + "): Contains it: " + this.getKnownTransactions());
@@ -384,8 +342,6 @@ public class Node {
             System.out.println("Node(" + this.hostIP + "): Don't have this one");
             this.getKnownTransactions().add(transaction);
             System.out.println("Added it: " + this.getKnownTransactions());
-
-
             return false;
         }
     }
@@ -394,7 +350,6 @@ public class Node {
         String hash = transaction.hash();
         PublicKey publicKey = generator.getPublicKeyFromString(transaction.getFromPublicKey());
         String decryptedString = generator.decrypt(publicKey, transaction.getSignature());
-
         if (hash.equals(decryptedString)) {
             return true;
         } else {
@@ -404,7 +359,6 @@ public class Node {
 
     public void checkIfFileContainsBlockJson(String blockAsJson) throws IOException {
         Path path = Paths.get("src\\node\\copyOfBlocks.txt");
-
         try (Stream<String> lines = Files.lines(path)) {
             Optional<String> hasBlock = lines.filter(s -> s.equals(blockAsJson)).findFirst();
             if (hasBlock.isPresent()) {
@@ -413,11 +367,9 @@ public class Node {
                 writeJsonToFile(path, blockAsJson);
             }
         }
-
     }
 
     private void writeJsonToFile(Path path, String blockString) {
-
         FileWriter fileWriter;
         try {
             fileWriter = new FileWriter(String.valueOf(path), true);
@@ -432,7 +384,7 @@ public class Node {
 
     public void displayPublicKeyString() {
         try {
-            String publicKey = generator.getStringFromPublicKey(generator.getPublicKey());
+            publicKey = generator.getStringFromPublicKey(generator.getPublicKey());
             System.out.println("This Node: " + publicKey);
         } catch (InvalidKeySpecException e) {
             e.printStackTrace();
@@ -441,5 +393,11 @@ public class Node {
         }
     }
 
+    public String getPublicKey() {
+        return publicKey;
+    }
 
+    public List<Transaction> getUnUsedTransactions() {
+        return unUsedTransactions;
+    }
 }

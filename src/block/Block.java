@@ -55,4 +55,8 @@ public class Block implements Hashable {
         result = 31 * result + (timeStamp != null ? timeStamp.hashCode() : 0);
         return result;
     }
+
+    public List<Transaction> getTransactions() {
+        return transactions;
+    }
 }

@@ -20,9 +20,14 @@ public class BlockSender implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         System.out.println("Send Handler Works");
 
-        String response = "<h1>A Block is being created and sent </h1>";
-
-        this.node.sendBlock();
+        this.node.findUnUsedTransactions();
+        String response;
+        if (this.node.getUnUsedTransactions().isEmpty()) {
+            response = "<h1>There are no unused Transactions to create a Block from</h1>";
+        } else {
+            response = "<h1>A Block is being created and sent </h1>";
+            this.node.sendBlock();
+        }
 
 
         exchange.sendResponseHeaders(200, response.length());
