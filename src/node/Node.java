@@ -5,6 +5,7 @@ import block.Transaction;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpServer;
 import encryption.PublicPrivateGenerator;
+import hashing.HashToHex;
 import server.*;
 import server.block.transfer.BlockReceiver;
 import server.block.transfer.BlockSender;
@@ -19,12 +20,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Node {
@@ -42,9 +45,11 @@ public class Node {
     private PublicPrivateGenerator generator = new PublicPrivateGenerator();
     private List<Transaction> unUsedTransactions = new ArrayList<>();
     private String publicKey;
+    private int accountBalance;
 
     public Node(int port) throws IOException, NoSuchAlgorithmException {
         this.port = port;
+        accountBalance = 100;
         System.out.println("Stand alone Peer");
         connectingInternally();
         startNodeClientAndServer(port);
@@ -220,14 +225,46 @@ public class Node {
     private String createBlock() throws IOException {
         System.out.println("CREATE STRING METHOD");
         Block block = new Block(getKnownBlocks().get(getKnownBlocks().size() - 1).hash(), this.unUsedTransactions);
+        block.setCount(this.unUsedTransactions.size());
+        int nextNumber = this.getKnownBlocks().get(getKnownBlocks().size() - 1).getNumber();
+        block.setNumber(nextNumber + 1);
+
+        boolean isNonceValid = false;
+        while (!isNonceValid) {
+            String nonce = generateNonceString(5, "abcdefghijklmnopqrstyvwxyz");
+            String hashAndNonce = block.hash() + nonce;
+            String hashOfNonce = generateNonceHash(hashAndNonce);
+            String subStringOfHash = hashOfNonce.substring(0, 4);
+            if (subStringOfHash.equals("0000")) {
+                isNonceValid = true;
+                System.out.println("VALID!!!!!!!!!!!!!!");
+                System.out.println("Nonce is: " + nonce);
+                System.out.println("Nonce Hash is: " + hashOfNonce);
+                block.setCreator(this.getPublicKey());
+                block.setNonce(nonce);
+                block.setHash(hashOfNonce);
+            }
+        }
         String blockAsJsonString = gson.toJson(block);
         this.unUsedTransactions = new ArrayList<>();
-
         this.getKnownBlocks().add(block);
-
         checkIfFileContainsBlockJson(blockAsJsonString);
-
         return blockAsJsonString;
+    }
+
+    private String generateNonceString(int length, String from) {
+        List<Character> temp = from.chars()
+                .mapToObj(i -> (char) i)
+                .collect(Collectors.toList());
+        Collections.shuffle(temp, new SecureRandom());
+        return temp.stream()
+                .map(Object::toString)
+                .limit(length)
+                .collect(Collectors.joining());
+    }
+
+    private String generateNonceHash(String nonce) {
+        return HashToHex.sha256ToHex(nonce);
     }
 
     public void findUnUsedTransactions() {
@@ -308,7 +345,7 @@ public class Node {
         Transaction transaction = Transaction.getNewTransaction(this.getKnownTransactions(),
                 generator.getStringFromPublicKey(generator.getPublicKey()),
                 receiver, amount);
-
+        this.accountBalance = this.accountBalance - Integer.parseInt(amount);
         String signature = generator.encrypt(generator.getPrivateKey(), transaction.hash());
 
         transaction.setSignature(signature);
@@ -316,7 +353,7 @@ public class Node {
         String transactionString = gson.toJson(transaction);
 
         this.getKnownTransactions().add(transaction);
-
+        System.out.println("CreateTrans: " + this.accountBalance);
         return transactionString;
     }
 
@@ -340,21 +377,34 @@ public class Node {
             return true;
         } else {
             System.out.println("Node(" + this.hostIP + "): Don't have this one");
-            this.getKnownTransactions().add(transaction);
-            System.out.println("Added it: " + this.getKnownTransactions());
+
+            dealWithNewTransaction(transaction);
+
             return false;
         }
+    }
+
+    public void dealWithNewTransaction(Transaction transaction) throws Exception {
+
+        if (checkIfSignatureIsValid(transaction)) {
+            this.getKnownTransactions().add(transaction);
+            System.out.println("Added it: " + this.getKnownTransactions());
+
+            if (transaction.getToPublicKey().equals(this.getPublicKey())) {
+                System.out.println("Correct Receiver " + this.port);
+                System.out.println("Current balance is: " + this.accountBalance);
+                this.accountBalance = this.accountBalance + Integer.parseInt(transaction.getSum());
+                System.out.println(this.port + " new balance is: " + this.accountBalance);
+            }
+        }
+
     }
 
     public boolean checkIfSignatureIsValid(Transaction transaction) throws Exception {
         String hash = transaction.hash();
         PublicKey publicKey = generator.getPublicKeyFromString(transaction.getFromPublicKey());
         String decryptedString = generator.decrypt(publicKey, transaction.getSignature());
-        if (hash.equals(decryptedString)) {
-            return true;
-        } else {
-            return false;
-        }
+        return hash.equals(decryptedString);
     }
 
     public void checkIfFileContainsBlockJson(String blockAsJson) throws IOException {
@@ -368,6 +418,11 @@ public class Node {
             }
         }
     }
+
+    public boolean checkIfTransactionSumIsValid(int sum) {
+        return this.accountBalance >= sum;
+    }
+
 
     private void writeJsonToFile(Path path, String blockString) {
         FileWriter fileWriter;

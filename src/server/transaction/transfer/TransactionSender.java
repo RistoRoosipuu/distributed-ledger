@@ -33,14 +33,19 @@ public class TransactionSender implements HttpHandler {
 
 
             try {
-                if(receiverKey.equals(this.node.getPublicKey())){
+                if (receiverKey.equals(this.node.getPublicKey())) {
                     response = "<h1>Please use 0 as the public key if you wish to send to yourself</h1>";
-                }else if(receiverKey.equals("0")) {
+                } else if ((receiverKey.equals("0") && this.node.checkIfTransactionSumIsValid(Integer.parseInt(sum)))) {
                     response = "<h1>A Transaction is being created and sent to yourself!!! </h1>";
                     this.node.sendTransaction(receiverKey, sum);
                 } else {
-                    response = "<h1>A Transaction is being created and sent </h1>";
-                    this.node.sendTransaction(receiverKey, sum);
+                    if (this.node.checkIfTransactionSumIsValid(Integer.parseInt(sum))) {
+                        response = "<h1>A Transaction is being created and sent </h1>";
+                        this.node.sendTransaction(receiverKey, sum);
+                    } else {
+                        response = "<h1>The sum is more than what the account holds</h1>";
+                    }
+
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -53,5 +58,5 @@ public class TransactionSender implements HttpHandler {
             os.close();
 
         }
-        }
     }
+}

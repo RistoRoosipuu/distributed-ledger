@@ -8,7 +8,12 @@ import java.util.List;
 
 public class Block implements Hashable {
 
+    private int number;
     private String prevHash;
+    private int count;
+    private String nonce;
+    private String hash;
+    private String creator;
     private List<Transaction> transactions;
     private String timeStamp;
 
@@ -58,5 +63,33 @@ public class Block implements Hashable {
 
     public List<Transaction> getTransactions() {
         return transactions;
+    }
+
+    public int getNumber() {
+        return number;
+    }
+
+    public void setNumber(int number) {
+        this.number = number;
+    }
+
+    public int getCount() {
+        return count;
+    }
+
+    public void setCount(int count) {
+        this.count = count;
+    }
+
+    public void setNonce(String nonce) {
+        this.nonce = nonce;
+    }
+
+    public void setHash(String hash) {
+        this.hash = hash;
+    }
+
+    public void setCreator(String creator) {
+        this.creator = creator;
     }
 }
