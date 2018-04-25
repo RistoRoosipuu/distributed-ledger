@@ -14,6 +14,7 @@ public class Block implements Hashable {
     private String nonce;
     private String hash;
     private String creator;
+    private String merkle_root;
     private List<Transaction> transactions;
     private String timeStamp;
 
@@ -91,5 +92,25 @@ public class Block implements Hashable {
 
     public void setCreator(String creator) {
         this.creator = creator;
+    }
+
+    public String getNonce() {
+        return nonce;
+    }
+
+    public String getHash() {
+        return hash;
+    }
+
+    public String getCreator() {
+        return creator;
+    }
+
+    public String getMerkle_root() {
+        return merkle_root;
+    }
+
+    public void setMerkle_root(String merkle_root) {
+        this.merkle_root = merkle_root;
     }
 }

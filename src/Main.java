@@ -1,10 +1,5 @@
-import encryption.PublicPrivateGenerator;
 import node.Node;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PublicKey;
-import java.util.Base64;
 import java.util.Scanner;
 
 public class Main {
@@ -34,5 +29,8 @@ public class Main {
 
             new Node(url, port);
         }
+
     }
+
+
 }

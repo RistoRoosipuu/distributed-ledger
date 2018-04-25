@@ -36,6 +36,7 @@ public class Node {
     private String hostIP;
     private Set<String> peerSet = Collections.synchronizedSet(new HashSet<>());
     private ScheduledExecutorService refreshPeersExecutor = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledExecutorService mineBlock = Executors.newSingleThreadScheduledExecutor();
     private ExecutorService serverExecutor = Executors.newFixedThreadPool(10);
     private InetAddress localAddr = InetAddress.getLocalHost();
     private List<Transaction> knownTransactions = Collections.synchronizedList(new ArrayList<>());
@@ -57,6 +58,7 @@ public class Node {
         getBlocksFromHardCopy();
         displayPublicKeyString();
         refreshPeerList();
+        mineBlock();
     }
 
     public Node(String peerAddr, int port) throws Exception {
@@ -68,11 +70,30 @@ public class Node {
         getBlocksFromHardCopy();
         connectToServer(peerAddr);
         refreshPeerList();
+        mineBlock();
     }
 
     private void connectingInternally() {
         hostIP = localAddr.getHostAddress() + ":" + this.port;
         peerSet.add(hostIP);
+    }
+
+    private void mineBlock() {
+        mineBlock.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                findUnUsedTransactions();
+
+                if (!unUsedTransactions.isEmpty()) {
+                    try {
+                        createBlock();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }, 10, 10, TimeUnit.MINUTES);
+
     }
 
     private void refreshPeerList() {
@@ -140,6 +161,7 @@ public class Node {
             server.createContext("/receiveBlock", new BlockReceiver(this));
             server.createContext("/transaction", new TransactionSender(this));
             server.createContext("/receiveTransaction", new TransactionReceiver(this));
+            server.createContext("/account", new NodeInformationHandler(this));
             server.setExecutor(serverExecutor);
             server.start();
         } catch (IOException e) {
@@ -245,11 +267,57 @@ public class Node {
                 block.setHash(hashOfNonce);
             }
         }
+        block.setMerkle_root(findMerkleStringRoot(unUsedTransactions));
         String blockAsJsonString = gson.toJson(block);
         this.unUsedTransactions = new ArrayList<>();
         this.getKnownBlocks().add(block);
         checkIfFileContainsBlockJson(blockAsJsonString);
         return blockAsJsonString;
+    }
+
+    private String findMerkleStringRoot(List<Transaction> transactions) {
+        String result = "";
+        boolean mustStillCombine = true;
+        List<String> tempList = new ArrayList<>();
+        for (Transaction transaction : transactions) {
+            tempList.add(transaction.hash());
+        }
+        while (mustStillCombine) {
+            if (tempList.size() == 1) {
+                result = onlyOneTransaction(tempList.get(0));
+                mustStillCombine = false;
+            } else if (tempList.size() % 2 == 0) {
+                tempList = evenNumberOfTransactions(tempList);
+            } else {
+                tempList = oddNumberOfTransactions(tempList);
+            }
+        }
+        return result;
+    }
+
+    private String onlyOneTransaction(String transactionHash) {
+        return HashToHex.sha256ToHex(transactionHash + transactionHash);
+    }
+
+    private List<String> evenNumberOfTransactions(List<String> tempList) {
+        List<String> evenPairs = new ArrayList<>();
+        for (int i = 0; i < tempList.size(); i = i + 2) {
+            String firstPair = tempList.get(i);
+            String secondPair = tempList.get(i + 1);
+            evenPairs.add(HashToHex.sha256ToHex(firstPair + secondPair));
+        }
+        return evenPairs;
+    }
+
+    private List<String> oddNumberOfTransactions(List<String> tempList) {
+        List<String> allPairs = new ArrayList<>();
+        List<String> oddStringsResult;
+        for (int i = 0; i < tempList.size() - 1; i++) {
+            allPairs.add(tempList.get(i));
+        }
+        oddStringsResult = evenNumberOfTransactions(allPairs);
+        oddStringsResult.add(onlyOneTransaction(tempList.get(tempList.size() - 1)));
+        return oddStringsResult;
     }
 
     private String generateNonceString(int length, String from) {
@@ -385,11 +453,9 @@ public class Node {
     }
 
     public void dealWithNewTransaction(Transaction transaction) throws Exception {
-
         if (checkIfSignatureIsValid(transaction)) {
             this.getKnownTransactions().add(transaction);
             System.out.println("Added it: " + this.getKnownTransactions());
-
             if (transaction.getToPublicKey().equals(this.getPublicKey())) {
                 System.out.println("Correct Receiver " + this.port);
                 System.out.println("Current balance is: " + this.accountBalance);
@@ -397,7 +463,6 @@ public class Node {
                 System.out.println(this.port + " new balance is: " + this.accountBalance);
             }
         }
-
     }
 
     public boolean checkIfSignatureIsValid(Transaction transaction) throws Exception {
@@ -454,5 +519,9 @@ public class Node {
 
     public List<Transaction> getUnUsedTransactions() {
         return unUsedTransactions;
+    }
+
+    public int getAccountBalance() {
+        return accountBalance;
     }
 }
