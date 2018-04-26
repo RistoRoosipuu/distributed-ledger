@@ -90,7 +90,8 @@ public class Node {
 
                 if (!unUsedTransactions.isEmpty()) {
                     try {
-                        createBlock();
+                        //createBlock();
+                        sendBlock();
 
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -274,8 +275,9 @@ public class Node {
         }
         block.setMerkle_root(findMerkleStringRoot(unUsedTransactions));
         String blockAsJsonString = gson.toJson(block);
-        this.unUsedTransactions = new ArrayList<>();
+        this.unUsedTransactions.clear();
         this.getKnownBlocks().add(block);
+        this.removeTheseTransactions(block);
         checkIfFileContainsBlockJson(blockAsJsonString);
         return blockAsJsonString;
     }
@@ -426,7 +428,10 @@ public class Node {
         Transaction transaction = Transaction.getNewTransaction(this.getKnownTransactions(),
                 generator.getStringFromPublicKey(generator.getPublicKey()),
                 receiver, amount);
-        this.accountBalance = this.accountBalance - Integer.parseInt(amount);
+        if (!amount.equals("0")) {
+            this.accountBalance = this.accountBalance - Integer.parseInt(amount);
+        }
+
         String signature = generator.encrypt(generator.getPrivateKey(), transaction.hash());
 
         transaction.setSignature(signature);
@@ -555,13 +560,13 @@ public class Node {
         } else if (firstBlock.getCount() < secondBlock.getCount()) {
             return firstBlock;
         } else if (firstBlock.getTimeStamp().compareTo(secondBlock.getTimeStamp()) < 0) {
-            return firstBlock;
+            return secondBlock;
         } else if (firstBlock.getTimeStamp().compareTo(secondBlock.getTimeStamp()) > 0) {
-            return secondBlock;
-        } else if (firstBlock.hash().compareTo(secondBlock.hash()) < 0) {
             return firstBlock;
-        } else if (firstBlock.hash().compareTo(secondBlock.hash()) > 0) {
+        } else if (firstBlock.hash().compareTo(secondBlock.hash()) < 0) {
             return secondBlock;
+        } else if (firstBlock.hash().compareTo(secondBlock.hash()) > 0) {
+            return firstBlock;
         } else {
             //Just remove the newer block;
             return secondBlock;
