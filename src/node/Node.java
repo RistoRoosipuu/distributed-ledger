@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -44,9 +45,10 @@ public class Node {
     //NB! Remember to remove Gson from BlockReceiver
     private Gson gson = new Gson();
     private PublicPrivateGenerator generator = new PublicPrivateGenerator();
-    private List<Transaction> unUsedTransactions = new ArrayList<>();
+    private List<Transaction> unUsedTransactions = Collections.synchronizedList(new ArrayList<>());
     private String publicKey;
     private int accountBalance;
+    private List<Block> blocksThatShouldBeRemoved = Collections.synchronizedList(new ArrayList<>());
 
     public Node(int port) throws IOException, NoSuchAlgorithmException {
         this.port = port;
@@ -59,6 +61,7 @@ public class Node {
         displayPublicKeyString();
         refreshPeerList();
         mineBlock();
+        findAndChooseCorrectBlocks();
     }
 
     public Node(String peerAddr, int port) throws Exception {
@@ -71,6 +74,7 @@ public class Node {
         connectToServer(peerAddr);
         refreshPeerList();
         mineBlock();
+        findAndChooseCorrectBlocks();
     }
 
     private void connectingInternally() {
@@ -87,12 +91,14 @@ public class Node {
                 if (!unUsedTransactions.isEmpty()) {
                     try {
                         createBlock();
+
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
+
             }
-        }, 10, 10, TimeUnit.MINUTES);
+        }, 1, 1, TimeUnit.MINUTES);
 
     }
 
@@ -217,7 +223,6 @@ public class Node {
         System.out.println(convertedFromJson);
     }
 
-
     public List<Block> getKnownBlocks() {
         return knownBlocks;
     }
@@ -280,7 +285,7 @@ public class Node {
         boolean mustStillCombine = true;
         List<String> tempList = new ArrayList<>();
         for (Transaction transaction : transactions) {
-            tempList.add(transaction.hash());
+            tempList.add(gson.toJson(transaction));
         }
         while (mustStillCombine) {
             if (tempList.size() == 1) {
@@ -390,9 +395,17 @@ public class Node {
         } else {
             System.out.println("Node(" + this.hostIP + "): Don't have this one");
             this.getKnownBlocks().add(block);
+            this.removeTheseTransactions(block);
             System.out.println("Added it: " + this.getKnownBlocks());
             return false;
         }
+    }
+
+    private void removeTheseTransactions(Block block) {
+        for (Transaction transaction : block.getTransactions()) {
+            this.getKnownTransactions().remove(transaction);
+        }
+        System.out.println("Removed Used Transactions");
     }
 
     public String getHostIP() {
@@ -488,6 +501,91 @@ public class Node {
         return this.accountBalance >= sum;
     }
 
+    public synchronized void findAndChooseCorrectBlocks() {
+        if (knownBlocks.size() > 1) {
+            System.out.println("Size: " + knownBlocks.size());
+            for (int i = 0; i < knownBlocks.size(); i++) {
+                Block firstBlock = knownBlocks.get(i);
+                System.out.println("First Block: " + i + " nr: " + firstBlock.getNumber());
+                for (int j = i + 1; j < knownBlocks.size(); j++) {
+                    Block secondBlock = knownBlocks.get(j);
+                    System.out.println("Second Block: " + j + " nr: " + secondBlock.getNumber());
+                    if (firstBlock.getNumber() == secondBlock.getNumber()) {
+                        chooseAndRemoveCorrectBlock(firstBlock, secondBlock);
+                    }
+                }
+            }
+        } else {
+            System.out.println("There is only the Genesis Block, everything is in order");
+        }
+
+        if (!blocksThatShouldBeRemoved.isEmpty()) {
+            System.out.println("Removing blocks from the internal list as well");
+            System.out.println("Old size: " + knownBlocks.size());
+            this.knownBlocks.removeAll(this.blocksThatShouldBeRemoved);
+            System.out.println("New size: " + knownBlocks.size());
+        }
+
+        this.blocksThatShouldBeRemoved.clear();
+
+    }
+
+    private synchronized void chooseAndRemoveCorrectBlock(Block firstBlock, Block secondBlock) {
+        System.out.println("We have a problem");
+        System.out.println("First Block is: " + firstBlock.getNumber() + " " + firstBlock.getCount() + " " + firstBlock.getTimeStamp());
+        System.out.println("Second Block is: " + secondBlock.getNumber() + " " + secondBlock.getCount() + " " + secondBlock.getTimeStamp());
+        Block blockToBeRemoved = findBlockToRemove(firstBlock, secondBlock);
+
+        System.out.println("Block to remove is: " + blockToBeRemoved.getNumber() + " " + blockToBeRemoved.getCount() + " " + blockToBeRemoved.getTimeStamp());
+        //this.getKnownBlocks().remove(blockToBeRemoved);
+        blocksThatShouldBeRemoved.add(blockToBeRemoved);
+        try {
+            this.removeBlockStringFromFile(blockToBeRemoved);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+        System.out.println("Block List: " + getKnownBlocks().size());
+    }
+
+    private Block findBlockToRemove(Block firstBlock, Block secondBlock) {
+        if (firstBlock.getCount() > secondBlock.getCount()) {
+            return secondBlock;
+        } else if (firstBlock.getCount() < secondBlock.getCount()) {
+            return firstBlock;
+        } else if (firstBlock.getTimeStamp().compareTo(secondBlock.getTimeStamp()) < 0) {
+            return firstBlock;
+        } else if (firstBlock.getTimeStamp().compareTo(secondBlock.getTimeStamp()) > 0) {
+            return secondBlock;
+        } else if (firstBlock.hash().compareTo(secondBlock.hash()) < 0) {
+            return firstBlock;
+        } else if (firstBlock.hash().compareTo(secondBlock.hash()) > 0) {
+            return secondBlock;
+        } else {
+            //Just remove the newer block;
+            return secondBlock;
+        }
+    }
+
+    private synchronized void removeBlockStringFromFile(Block block) throws IOException {
+        //Path path = Paths.get("src\\node\\copyOfBlocks.txt");
+        String blockAsString = gson.toJson(block);
+        String path = "src\\node\\copyOfBlocks.txt";
+
+        File file = new File(path);
+
+        synchronized (file.getCanonicalPath().intern()) {
+            List<String> out = Files.lines(Paths.get(path))
+                    .filter(line -> !line.equals(blockAsString))
+                    .collect(Collectors.toList());
+            Files.write(Paths.get(path), out, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+
+            System.out.println("Removing from file: nr: " + block.getNumber() + " nonce: " + block.getNonce());
+        }
+
+
+    }
 
     private void writeJsonToFile(Path path, String blockString) {
         FileWriter fileWriter;

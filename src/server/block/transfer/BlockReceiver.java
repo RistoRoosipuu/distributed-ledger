@@ -35,6 +35,7 @@ public class BlockReceiver implements HttpHandler {
         String response;
         if (this.node.checkIfBlockExists(receivedBlock)) {
             response = "From Handler: This peer already has this block";
+            this.node.findAndChooseCorrectBlocks();
         } else {
             response = "From Handler: This peer didn't have this block";
             this.node.sendBlockToAllPeers(query.getBytes(StandardCharsets.UTF_8));

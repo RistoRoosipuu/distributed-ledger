@@ -113,4 +113,8 @@ public class Block implements Hashable {
     public void setMerkle_root(String merkle_root) {
         this.merkle_root = merkle_root;
     }
+
+    public String getTimeStamp() {
+        return timeStamp;
+    }
 }
