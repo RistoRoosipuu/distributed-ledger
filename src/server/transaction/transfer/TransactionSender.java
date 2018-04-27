@@ -48,7 +48,8 @@ public class TransactionSender implements HttpHandler {
 
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                //e.printStackTrace();
+                System.out.println("Could not send Transaction to known Peer");
             }
 
 

@@ -278,7 +278,7 @@ public class Node {
         String blockAsJsonString = gson.toJson(block);
         this.unUsedTransactions.clear();
         this.getKnownBlocks().add(block);
-        this.removeTheseTransactions(block);
+        //this.removeTheseTransactions(block);
         checkIfFileContainsBlockJson(blockAsJsonString);
         return blockAsJsonString;
     }
@@ -398,7 +398,7 @@ public class Node {
         } else {
             System.out.println("Node(" + this.hostIP + "): Don't have this one");
             this.getKnownBlocks().add(block);
-            this.removeTheseTransactions(block);
+            //this.removeTheseTransactions(block);
             System.out.println("Added it: " + this.getKnownBlocks());
             return false;
         }
@@ -429,7 +429,7 @@ public class Node {
         Transaction transaction = Transaction.getNewTransaction(this.getKnownTransactions(),
                 generator.getStringFromPublicKey(generator.getPublicKey()),
                 receiver, amount);
-        if (!amount.equals("0")) {
+        if (!receiver.equals("0")) {
             this.accountBalance = this.accountBalance - Integer.parseInt(amount);
         }
 
