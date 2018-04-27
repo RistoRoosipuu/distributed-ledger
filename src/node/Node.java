@@ -52,7 +52,7 @@ public class Node {
 
     public Node(int port) throws IOException, NoSuchAlgorithmException {
         this.port = port;
-        accountBalance = 100;
+        this.accountBalance = 100;
         System.out.println("Stand alone Peer");
         connectingInternally();
         startNodeClientAndServer(port);
@@ -66,6 +66,7 @@ public class Node {
 
     public Node(String peerAddr, int port) throws Exception {
         this.port = port;
+        this.accountBalance = 100;
         System.out.println("This peer connects to a specific IP");
         connectingInternally();
         startNodeClientAndServer(port);
@@ -79,6 +80,7 @@ public class Node {
 
     private void connectingInternally() {
         hostIP = localAddr.getHostAddress() + ":" + this.port;
+        System.out.println("HostLocation: " + hostIP);
         peerSet.add(hostIP);
     }
 
@@ -90,7 +92,6 @@ public class Node {
 
                 if (!unUsedTransactions.isEmpty()) {
                     try {
-                        //createBlock();
                         sendBlock();
 
                     } catch (IOException e) {
@@ -99,7 +100,7 @@ public class Node {
                 }
 
             }
-        }, 1, 1, TimeUnit.MINUTES);
+        }, 10, 10, TimeUnit.MINUTES);
 
     }
 
@@ -186,8 +187,8 @@ public class Node {
         System.out.println("This Host IP: " + hostIP + " and port: " + port);
         in.close();
         //add this specific Node's IP and Port to known Peer Set
-        this.hostIP = hostIP + ":" + port;
-        getPeerSet().add(this.hostIP);
+        //this.hostIP = hostIP + ":" + port;
+        //getPeerSet().add(this.hostIP);
     }
 
     /**
@@ -511,10 +512,10 @@ public class Node {
             System.out.println("Size: " + knownBlocks.size());
             for (int i = 0; i < knownBlocks.size(); i++) {
                 Block firstBlock = knownBlocks.get(i);
-                System.out.println("First Block: " + i + " nr: " + firstBlock.getNumber());
+                //System.out.println("First Block: " + i + " nr: " + firstBlock.getNumber());
                 for (int j = i + 1; j < knownBlocks.size(); j++) {
                     Block secondBlock = knownBlocks.get(j);
-                    System.out.println("Second Block: " + j + " nr: " + secondBlock.getNumber());
+                    //System.out.println("Second Block: " + j + " nr: " + secondBlock.getNumber());
                     if (firstBlock.getNumber() == secondBlock.getNumber()) {
                         chooseAndRemoveCorrectBlock(firstBlock, secondBlock);
                     }
@@ -536,9 +537,9 @@ public class Node {
     }
 
     private synchronized void chooseAndRemoveCorrectBlock(Block firstBlock, Block secondBlock) {
-        System.out.println("We have a problem");
-        System.out.println("First Block is: " + firstBlock.getNumber() + " " + firstBlock.getCount() + " " + firstBlock.getTimeStamp());
-        System.out.println("Second Block is: " + secondBlock.getNumber() + " " + secondBlock.getCount() + " " + secondBlock.getTimeStamp());
+        //System.out.println("We have a problem");
+        //System.out.println("First Block is: " + firstBlock.getNumber() + " " + firstBlock.getCount() + " " + firstBlock.getTimeStamp());
+        //System.out.println("Second Block is: " + secondBlock.getNumber() + " " + secondBlock.getCount() + " " + secondBlock.getTimeStamp());
         Block blockToBeRemoved = findBlockToRemove(firstBlock, secondBlock);
 
         System.out.println("Block to remove is: " + blockToBeRemoved.getNumber() + " " + blockToBeRemoved.getCount() + " " + blockToBeRemoved.getTimeStamp());
