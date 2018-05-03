@@ -17,7 +17,7 @@ Work in progress on a project to create a Distributed Ledger over HTTP in Java. 
                    a more overarching methods.
     * Improvement: Clean up code.
   
-# Part Two todo:
+# Part Two Readme In Progress:
 
 * Continue to build the entire Ledger.
 * Implement the Merkle Tree for blocks. 
